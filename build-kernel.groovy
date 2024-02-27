@@ -10,8 +10,8 @@ pipeline {
     parameters {
         choice choices: ['brya', 'brask', 'rex', 'nissa', 'dedede'], description: 'Choose Reference Board', name: 'board'
         choice choices: ['v5.10', 'v5.15', 'v6.1', 'v6.6', 'upstream'], description: 'Linux kernel version', name: 'kernel_version'
-        string defaultValue: '', description: 'Commit ID', name: 'commit_id'
-        string defaultValue: 'remotes/m/stable', description: 'Remote Branch', name: 'remote_branch'
+        string defaultValue: '', description: 'Commit ID (checkout to this commit_id if specified)', name: 'commit_id'
+        string defaultValue: 'remotes/m/main', description: 'Remote Branch (checkout to this remote branch if commit_id is not specified)', name: 'remote_branch'
         string defaultValue: 'local-branch', description: 'Local Branch', name: 'local_branch'
     }
 
@@ -56,25 +56,22 @@ pipeline {
                         prev_local_branch = sh returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD'
                         echo "prev_local_branch = ${prev_local_branch}"
                         
-                        // Check if remote branch exist
-                        def checkout_branch = sh returnStatus: true, script: "git checkout -b ${params.local_branch} ${params.remote_branch}"
-                        if (checkout_branch != 0) {
-                            currentBuild.result = 'ABORTED'
-                            error("Remote branch ${params.remote_branch} does not exist, abort ...")
-                        }
-
                         if (!params.commit_id.isEmpty()) {
                             // Check if commit id exist
-                            sh "git branch --contains ${params.commit_id}"
+                            //sh "git branch --contains ${params.commit_id}"
                             
-                            def commit_id_not_exist = sh returnStatus: true, script: "git branch --contains ${params.commit_id} | grep -q ${params.local_branch}"
-                            if (commit_id_not_exist == 1) {
-                                echo "Commit ${params.commit_id} not exists in branch ${params.local_branch}"
+                            def commit_id_not_exist = sh returnStatus: true, script: "git checkout -b ${params.local_branch} ${params.commit_id}"
+                            if (commit_id_not_exist != 0) {
+                                echo "Commit ${params.commit_id} not exists"
                                 currentBuild.result = 'ABORTED'
                                 error("Commit ${params.commit_id} does not exist, abort ...")
-                            } else {
-                                echo "Commit ${params.commit_id} exists in branch ${params.local_branch}"
-                                sh "git checkout ${params.commit_id}"
+                            }
+                        } else {
+                            // Check if remote branch exist
+                            def checkout_branch = sh returnStatus: true, script: "git checkout -b ${params.local_branch} ${params.remote_branch}"
+                            if (checkout_branch != 0) {
+                                currentBuild.result = 'ABORTED'
+                                error("Remote branch ${params.remote_branch} does not exist, abort ...")
                             }
                         }
                     }
