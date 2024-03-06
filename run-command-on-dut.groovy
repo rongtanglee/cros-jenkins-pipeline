@@ -39,37 +39,30 @@ pipeline {
                 script {
                     result = sh label: 'run-dut-cmd', returnStatus: true, script: "ssh root@${params.dut_ip} '${params.dut_cmd}'"
                     echo "result=${result}"
-                }
-            }
-            
-            post {
-                success {
-                    script {
-                        if (result == 0) {
-                            env.BUILD_RESULT = "SCRIPT_OK"
-                        } else {
-                            env.BUILD_RESULT = "SCRIPT_ERROR"
-                        }
+                    if (result == 0) {
+                        env.TEST_RESULT = 'TEST_OK'
+                    } else {
+                        env.TEST_RESULT = 'TEST_FAIL'
                     }
-                }
-                failure {
-                    script {
-                        env.BUILD_RESULT = "BUILD_FAIL"
-                    }
-                }
-                aborted {
-                    script {
-                        env.BUILD_RESULT = "BUILD_ABORT"
-                    }
+
+                    echo "TEST_RESULT=${env.TEST_RESULT}"
                 }
             }
         }
     }
-    
+
     post {
-        always {
-            buildDescription "Build result = ${env.BUILD_RESULT}"
+        failure {
+            script {
+                env.TEST_RESULT = 'BUILD_FAIL'
+            }
+        }
+
+        aborted {
+            script {
+                env.TEST_RESULT = 'BUILD_ABORT'
+            }
         }
     }
-    
+
 }
