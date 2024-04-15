@@ -232,7 +232,7 @@ fixed
                         while (first_new_commit_not_found == 1) {
                             build job: 'build-kernel-simple', parameters: [string(name: 'board', value: "${family_name}"), string(name: 'kernel_version', value: "${kernel_version}")]
 
-                            build job: 'update-kernel', parameters: [string(name: 'dut_ip', value: "${params.dut_ip}"), booleanParam(name: 'update_firmware', value: true)]
+                            build job: 'update-kernel-simple', parameters: [string(name: 'dut_ip', value: "${params.dut_ip}"), booleanParam(name: 'update_firmware', value: true)]
 
                             def old_or_new = 'skip'
                             def buildJob = null
