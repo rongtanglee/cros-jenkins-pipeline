@@ -40,9 +40,24 @@ pipeline {
         
         stage('Push HID file') {
             steps {
-                withFileParameter('hid_file') {
-                    unstash 'hid_file'
-                    sh "scp hid_file root@${params.dut_ip}:/usr/local/record-replay-hid/replay.hid"
+                cleanWs()
+                script {
+                    def buildCause = currentBuild.getBuildCauses()[0]['shortDescription']
+                    println ("Cause: " + buildCause)
+
+                    if (buildCause.contains('upstream')) {
+                        echo 'Build was triggered by upstream'
+
+                        def upstreamProject = buildCause.substring(buildCause.indexOf('"') + 1, buildCause.lastIndexOf('"'))
+                        echo "upstreamProject: ${upstreamProject}"
+                        copyArtifacts filter: '*.hid', projectName: "${upstreamProject}", selector: upstream()
+                        sh "scp *.hid root@${params.dut_ip}:/usr/local/record-replay-hid/replay.hid"
+                    } else {
+                        echo 'Build was not trigged by upstream'
+
+                        unstash 'hid_file'
+                        sh "scp hid_file root@${params.dut_ip}:/usr/local/record-replay-hid/replay.hid"
+                    }
                 }
             }
         }
