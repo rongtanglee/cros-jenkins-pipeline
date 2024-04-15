@@ -86,6 +86,7 @@ pipeline {
                     dir("${env.HOME}/cros-tot/out/tmp/tast/results/${resultFolder}") {
                         sh "tar -zcvpf ${env.WORKSPACE}/${product_name}-${resultFolder}.tar.gz *"
                         archiveArtifacts artifacts: 'full.txt', followSymlinks: false
+                        stash includes: 'full.txt', name: 'full-txt-artifact'
                     }
                     archiveArtifacts artifacts: "${product_name}-${resultFolder}.tar.gz", followSymlinks: false
                 }
@@ -100,7 +101,8 @@ pipeline {
             steps {
                 sh 'printenv'
                 script {
-                    def Result = sh returnStatus: true, script: "grep -q \'${params.test_item} \\[ PASS \\]\' ${buildOutputFile}"
+                    unstash 'full-txt-artifact'
+                    def Result = sh returnStatus: true, script: "grep -q \'${params.test_item} \\[ PASS \\]\' full.txt"
                     if (Result == 0) {
                         echo "The test ${params.test_item} is PASSED"
                         env.TEST_RESULT = 'TEST_OK'
