@@ -16,6 +16,8 @@ if [[ $output == *"s0ix errors: 1"* ]] || [[ $output == *"Premature wakes: 1"* ]
 	echo "found S0ix error"
 	exit 1
 fi''', description: 'Write bash script in this text editor if script file is not available', name: 'script_text'
+
+        string defaultValue: '', description: 'Script arguments', name: 'args'
     }
 
     stages {
@@ -67,7 +69,7 @@ fi''', description: 'Write bash script in this text editor if script file is not
         stage('Run script') {
             steps {
                 script {
-                    result = sh label: 'run-dut-cmd', returnStatus: true, script: "ssh root@${params.dut_ip} '/usr/local/test.sh'"
+                    result = sh label: 'run-dut-cmd', returnStatus: true, script: "ssh root@${params.dut_ip} '/usr/local/test.sh ${params.args}'"
                     echo "result=${result}"
 
                     if (result == 0) {
