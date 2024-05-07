@@ -10,7 +10,8 @@ pipeline {
     }
     
     parameters {
-        string defaultValue: '192.168.1.102', description: 'DUT IP address', name: 'dut_ip'
+        string defaultValue: '192.168.1.115', description: 'DUT IP address', name: 'dut_ip'
+        booleanParam defaultValue: false, description: 'Update kernel image as well', name: 'update_kernel'
     }
 
     stages {
@@ -42,7 +43,7 @@ pipeline {
         
         stage('Build socwatch') {
             steps {
-                build job: 'build-socwatch', parameters: [string(name: 'board', value: "${family_name}"), string(name: 'kernel_version', value: "${kernel_version}"), string(name: 'commit_id', value: "${commit_id}")]   
+                build job: 'build-socwatch', parameters: [string(name: 'board', value: "${family_name}"), string(name: 'kernel_version', value: "${kernel_version}"), string(name: 'commit_id', value: "${commit_id}"), string(name: 'socwatch_version', value: 'socwatch_chrome_NDA_v2024.2.0_x86_64')]
             }
             
             post {
@@ -57,7 +58,16 @@ pipeline {
                 build job: 'remove-rootfs-verification', parameters: [string(name: 'dut_ip', value: "${params.dut_ip}")]
             }
         }
-        
+
+        stage('Update kernel') {
+            when {
+                expression { return params.update_kernel }
+            }
+            steps {
+                build job: 'update-kernel-simple', parameters: [string(name: 'dut_ip', value: "${params.dut_ip}"), booleanParam(name: 'update_firmware', value: true)]
+            }
+        }
+
         stage('Install socwatch to DUT') {
             steps {
                 sh "scp socwatch_chrome_CUSTOM.tar.gz root@${params.dut_ip}:/usr/local/"
