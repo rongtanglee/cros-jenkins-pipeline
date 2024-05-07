@@ -1,17 +1,14 @@
 def kernel_package
 def build_agent
-//def socwatch_version = 'socwatch_chrome_NDA_v2024.1.0_x86_64'
-def socwatch_version = 'socwatch_chrome_NDA_v2023.7.0_x86_64'
 
 pipeline {
     agent any
     
     parameters {
-        //string defaultValue: '192.168.1.102', description: 'DUT IP address', name: 'dut_ip'
-        
-        choice choices: ['brya', 'brask', 'rex', 'nissa', 'dedede'], description: 'Choose Reference Board', name: 'board'
+        choice choices: ['brya', 'brask', 'rex', 'nissa', 'dedede', 'brox'], description: 'Choose Reference Board', name: 'board'
         choice choices: ['v5.10', 'v5.15', 'v6.1', 'v6.6', 'upstream'], description: 'Linux kernel version', name: 'kernel_version'
-        string defaultValue: '', description: 'Commit ID', name: 'commit_id'
+        string defaultValue: '', description: 'Commit ID', name: 'Commit ID ($uname -r to check commit ID)'
+        choice choices: ['socwatch_chrome_NDA_v2024.2.0_x86_64', 'socwatch_chrome_NDA_v2024.1.0_x86_64', 'socwatch_chrome_NDA_v2023.7.0_x86_64'], description: 'Select the socwatch version', name: 'socwatch_version'
     }
 
     stages {
@@ -43,10 +40,11 @@ pipeline {
         }
         
         stage('Build kernel image') {
+
             steps {
                 echo "Build kernel image"
 
-                build job: 'build-kernel', parameters: [string(name: 'board', value: "${params.board}"), string(name: 'kernel_version', value: "${params.kernel_version}"), string(name: 'commit_id', value: "${params.commit_id}"), string(name: 'local_branch', value: 'build-socwatch')]
+                build job: 'build-kernel', parameters: [string(name: 'board', value: "${params.board}"), string(name: 'kernel_version', value: "${params.kernel_version}"), string(name: 'commit_id', value: "${params.commit_id}"), string(name: 'local_branch', value: 'build-socwatch'), , booleanParam(name: 'delete_local_branch', value: false)]
             }
         }
         
@@ -57,15 +55,15 @@ pipeline {
             
             steps {
                 cleanWs()
-                sh "cp -rfpv /mnt/jenkins/tools/${socwatch_version} ${env.WORKSPACE}"
-                sh "cp -rfpv /mnt/jenkins/tools/socwatch_suspend ${env.WORKSPACE}/${socwatch_version}"
+                sh "cp -rfpv /mnt/jenkins/tools/${params.socwatch_version} ${env.WORKSPACE}"
+                sh "cp -rfpv /mnt/jenkins/tools/socwatch_suspend ${env.WORKSPACE}/${params.socwatch_version}"
                 script {
                     dir("${env.HOME}/cros-tot") {
                         sh """
                             /home/ron/bin/depot_tools/cros_sdk --enter <<EOF
-                            cd /jenkins-workspace/build-socwatch/${socwatch_version}/socwatch_driver
+                            cd /jenkins-workspace/build-socwatch/${params.socwatch_version}/socwatch_driver
                             make KERNEL_SRC_DIR=/build/${params.board}/var/cache/portage/sys-kernel/${kernel_package}/ clean
-                            cd /jenkins-workspace/build-socwatch/${socwatch_version}/
+                            cd /jenkins-workspace/build-socwatch/${params.socwatch_version}/
                             ./build_drivers.sh -l -c /usr/bin/x86_64-cros-linux-gnu-clang -k /build/${params.board}/var/cache/portage/sys-kernel/${kernel_package}/
                             ./socwatch_chrome_create_install_package.sh 
                             <<-EOF
@@ -75,8 +73,17 @@ pipeline {
             }
             
             post {
+                always {
+                    echo "Delete local branch"
+                    dir("${env.HOME}/cros-tot/src/third_party/kernel/${params.kernel_version}") {
+                        sh """
+                            git checkout def
+                            git branch -D build-socwatch
+                        """
+                    }
+                }
                 success {
-                    dir("${env.WORKSPACE}/${socwatch_version}") {
+                    dir("${env.WORKSPACE}/${params.socwatch_version}") {
                         archiveArtifacts artifacts: 'socwatch_chrome_CUSTOM.tar.gz', followSymlinks: false
                     }
                     
