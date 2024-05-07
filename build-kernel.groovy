@@ -8,11 +8,12 @@ pipeline {
     agent any
     
     parameters {
-        choice choices: ['brya', 'brask', 'rex', 'nissa', 'dedede'], description: 'Choose Reference Board', name: 'board'
+        choice choices: ['brya', 'brask', 'rex', 'nissa', 'dedede', 'brox'], description: 'Choose Reference Board', name: 'board'
         choice choices: ['v5.10', 'v5.15', 'v6.1', 'v6.6', 'upstream'], description: 'Linux kernel version', name: 'kernel_version'
         string defaultValue: '', description: 'Commit ID (checkout to this commit_id if specified)', name: 'commit_id'
         string defaultValue: 'remotes/m/main', description: 'Remote Branch (checkout to this remote branch if commit_id is not specified)', name: 'remote_branch'
         string defaultValue: 'local-branch', description: 'Local Branch', name: 'local_branch'
+        booleanParam defaultValue: true, description: 'Delete the local branch once build completed', name: 'delete_local_branch'
     }
 
     stages {
@@ -43,7 +44,7 @@ pipeline {
             }
         }
         
-        stage('Checkout revision') {
+        stage('Checkout local branch') {
             agent {
                 label "${build_agent}"
             }
@@ -98,7 +99,7 @@ pipeline {
                 
             }
         }
-        
+
         stage('Build Kernel Image') {
             agent {
                 label "${build_agent}"
@@ -119,14 +120,19 @@ pipeline {
                     
                 }
             }
-            post {
-                always {
-                    dir("${env.HOME}/cros-tot/src/third_party/kernel/${params.kernel_version}") {
-                        sh """
-                            git checkout ${prev_local_branch}
-                            git branch -D ${params.local_branch}
-                        """
-                    }
+        }
+
+        stage('Delete local branch') {
+            when {
+                expression { return (params.delete_local_branch) }
+            }
+
+            steps {
+                dir("${env.HOME}/cros-tot/src/third_party/kernel/${params.kernel_version}") {
+                    sh """
+                        git checkout ${prev_local_branch}
+                        git branch -D ${params.local_branch}
+                    """
                 }
             }
         }
