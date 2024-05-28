@@ -1,21 +1,27 @@
 def product_name
 def abort_recording = false
 
+def buildTriggerByUpstream() {
+    return currentBuild.getBuildCauses()[0]['shortDescription'].contains('upstream')
+}
+
 pipeline {
     agent {
         label 'jenkins-master'
     }
-    
+
     parameters {
         string defaultValue: '192.168.1.102', description: 'DUT IP address', name: 'dut_ip'
-        //base64File description: 'HID event file to be replayed', name: 'hid_file'
         stashedFile description: 'Upload HID Event File', name: 'hid_file'
         string defaultValue: '1', description: 'Replay Iteration', name: 'replay_iter'
         string defaultValue: '3', description: 'Delay between Iterations', name: 'delay'
     }
-    
+
     stages {
         stage('Check DUT') {
+            when {
+                expression { return !buildTriggerByUpstream() }
+            }
             steps {
                 sh 'printenv'
                 echo "Check DUT IP: ${params.dut_ip}"
@@ -26,10 +32,10 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Push tools to DUT') {
             steps {
-                
+
                 dir("${env.HOME}/tools") {
                     echo 'Push record-replay-hid tools to DUT'
                     sh "scp record-replay-hid.zip root@${params.dut_ip}:/usr/local/"
@@ -37,7 +43,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Push HID file') {
             steps {
                 cleanWs()
@@ -61,13 +67,13 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Replay HID file') {
             steps {
                 echo "Replay HID file: replay.hid"
                 sh "ssh root@${params.dut_ip} 'cd /usr/local/record-replay-hid/ && ./replay-hid.py replay.hid ${params.replay_iter} ${params.delay}'"
             }
-            
+
             post {
                 aborted {
                     echo "Stopping the replay-hid"
